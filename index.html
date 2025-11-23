@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -139,10 +139,12 @@
                         <span id="daily-goal-display" class="text-sm text-slate-500">/ 2500ml</span>
                     </div>
                     
-                    <!-- RELÓGIO DO PRÓXIMO LEMBRETE (Next Reminder Clock) -->
-                    <div id="next-reminder-clock" class="hidden flex items-center gap-1 mt-3 text-sm font-medium transition-colors duration-300 text-cyan-400">
-                        <i data-lucide="clock" class="w-4 h-4"></i>
-                        <span id="next-reminder-time">Próx: --:--</span>
+                    <!-- Relógio do Próximo Lembrete (DE VOLTA AO CÍRCULO) -->
+                    <div id="next-reminder-clock" class="mt-4 flex flex-col items-center transition-opacity duration-500 opacity-0">
+                        <!-- Use a cor de destaque aqui -->
+                        <i data-lucide="clock" id="next-reminder-clock-icon" class="w-4 h-4 text-cyan-400"></i>
+                        <span class="text-xs font-semibold text-slate-400 mt-1">Próx. Alarme</span>
+                        <span id="next-reminder-time-display" class="text-2xl font-bold text-cyan-400">--:--</span>
                     </div>
                 </div>
 
@@ -171,7 +173,12 @@
                     max="1000"
                     step="10"
                     value="250"
-                    oninput="document.getElementById('slider-value-display').innerHTML = this.value + ' <span class=\'text-sm font-normal text-slate-500\'>ml</span>';"
+                    oninput="
+                        const val = this.value; 
+                        sliderValue = Number(val);
+                        document.getElementById('slider-value-display').innerHTML = val + ' <span class=\'text-sm font-normal text-slate-500\'>ml</span>';
+                        document.getElementById('add-button-amount').textContent = val;
+                    "
                     id="slider-amount"
                 />
                 
@@ -202,7 +209,7 @@
                 Adicionar <span id="add-button-amount">250</span>ml
             </button>
         </div>
-
+        
         <!-- Quick Add Controls -->
         <div class="grid grid-cols-3 gap-3 mb-4">
             <!-- 200ml Button -->
@@ -232,6 +239,36 @@
                 <span class="font-semibold text-sm">500ml</span>
             </button>
         </div>
+        
+        <!-- NOVO: Lembrete Inteligente na Tela Inicial (com toggle e botões de intervalo) -->
+        <div id="main-reminder-controls" class="w-full bg-slate-900/40 backdrop-blur-md border border-slate-700 rounded-2xl p-4 mb-4 shadow-lg transition-colors duration-300">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-3">
+                <i data-lucide="bell" class="w-4 h-4 text-cyan-400"></i> Lembrete Inteligente
+            </label>
+
+            <!-- Reminder Toggle Button -->
+            <button 
+                onclick="toggleReminders()"
+                id="main-reminder-toggle-button"
+                class="w-full p-3 rounded-xl border flex items-center justify-between transition-all mb-3"
+            >
+                <div class="flex items-center gap-3">
+                    <i data-lucide="bell" id="main-reminder-toggle-icon" class="w-5 h-5"></i>
+                    <span id="main-reminder-toggle-text" class="font-medium">Ativado</span>
+                </div>
+                <div id="main-reminder-toggle-switch" class="w-10 h-6 rounded-full relative transition-colors">
+                    <div class="absolute top-1 w-4 h-4 bg-white rounded-full transition-transform"></div>
+                </div>
+            </button>
+            
+            <!-- Reminder Interval Controls -->
+            <div id="main-reminder-interval-controls" class="grid grid-cols-3 gap-2">
+                <button onclick="setReminderInterval(60)" class="main-reminder-interval-btn py-2 rounded-lg text-sm font-medium border transition-all" data-interval="60">1h</button>
+                <button onclick="setReminderInterval(90)" class="main-reminder-interval-btn py-2 rounded-lg text-sm font-medium border transition-all" data-interval="90">1.5h</button>
+                <button onclick="setReminderInterval(120)" class="main-reminder-interval-btn py-2 rounded-lg text-sm font-medium border transition-all" data-interval="120">2h</button>
+            </div>
+        </div>
+
 
         <!-- Footer / History Toggle -->
         <div class="mt-auto">
@@ -307,6 +344,7 @@
                         <i data-lucide="bell" class="w-4 h-4 text-cyan-400"></i> Lembrete Inteligente
                     </label>
                     <div class="flex flex-col gap-3">
+                        <!-- Botões de Lembrete - Usam os IDs originais (sem prefixo) -->
                         <button 
                             onclick="toggleReminders()"
                             id="reminder-toggle-button"
@@ -327,6 +365,7 @@
                             <button onclick="setReminderInterval(120)" class="reminder-interval-btn py-2 rounded-lg text-sm font-medium border transition-all bg-cyan-500 text-white border-transparent" data-interval="120">2h</button>
                         </div>
 
+                        <!-- Clock na Modal de Ajustes (para redundância e confirmação) -->
                         <div id="setting-next-reminder-clock" class="hidden flex items-center gap-2 mt-2 px-3 py-2 rounded-lg text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/50">
                             <i data-lucide="clock" class="w-3 h-3"></i>
                             <span id="setting-next-reminder-time">O alarme tocará às: --:--</span>
@@ -375,7 +414,7 @@
 
         function showModal(id) {
             document.getElementById(id).classList.remove('hidden');
-            document.getElementById(id).classList.add('flex'); // History modal is flex-col
+            document.getElementById(id).classList.add('flex'); 
             if (id === 'history-modal') {
                 document.getElementById(id).classList.add('flex-col');
                 renderHistory();
@@ -502,19 +541,21 @@
                         granted = p === 'granted';
                     } catch (e) {}
                 }
-                showNotification(granted ? "Lembretes do sistema!" : "Alarme interno ativo");
+                showNotification(granted ? "Lembretes do sistema ativados!" : "Alarme interno ativo");
                 playNotificationSound(); 
             } else {
                 showNotification("Lembretes desativados");
             }
             reminderLogic(); // Recalculate and start/stop timer
             updateSettingsModal(); // Update settings UI
+            renderApp(); // Update main UI
         }
         
         function setReminderInterval(minutes) {
             reminderInterval = minutes;
             reminderLogic();
             updateSettingsModal();
+            renderApp(); // Update main UI
             showNotification(`Lembrete ajustado para ${minutes/60}h`);
         }
 
@@ -620,7 +661,70 @@
             renderApp(); // Rerender main UI
         }
 
+        // Function to update the reminder UI controls (toggle and interval buttons)
+        function updateReminderUI(targetPrefix = '') { 
+            const t = themes[currentTheme];
+            
+            // Toggle Button Elements
+            const btn = document.getElementById(`${targetPrefix}reminder-toggle-button`);
+            const icon = document.getElementById(`${targetPrefix}reminder-toggle-icon`);
+            const text = document.getElementById(`${targetPrefix}reminder-toggle-text`);
+            const switchEl = document.getElementById(`${targetPrefix}reminder-toggle-switch`);
+            const intervalControls = document.getElementById(`${targetPrefix}reminder-interval-controls`);
+            
+            if (!btn || !switchEl) return; 
+
+            const switchCircle = switchEl.querySelector('div');
+            
+            // 1. Update Toggle Button appearance
+            // Use 'mb-3' on the main screen (targetPrefix = 'main-') for spacing
+            btn.className = `w-full p-3 rounded-xl border flex items-center justify-between transition-all ${remindersEnabled ? `${t.pillBg} ${t.pillBorder} ${t.pillText}` : 'bg-slate-800/30 border-slate-700 text-slate-400'} ${targetPrefix === 'main-' ? 'mb-3' : ''}`;
+            
+            icon.dataset.lucide = remindersEnabled ? 'bell' : 'bell-off';
+            text.textContent = remindersEnabled ? 'Ativado' : 'Desativado';
+            
+            switchEl.className = `w-10 h-6 rounded-full relative transition-colors ${remindersEnabled ? t.pillIndicator : 'bg-slate-700'}`;
+            switchCircle.className = `absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${remindersEnabled ? 'left-5' : 'left-1'}`;
+            
+            // 2. Update Interval Buttons
+            if (intervalControls) {
+                if (remindersEnabled) {
+                    intervalControls.classList.remove('hidden');
+                    const selectorClass = targetPrefix === 'main-' ? 'main-reminder-interval-btn' : 'reminder-interval-btn';
+                    document.querySelectorAll(`.${selectorClass}`).forEach(button => {
+                        const interval = Number(button.dataset.interval);
+                        if (interval === reminderInterval) {
+                            button.className = `${selectorClass} py-2 rounded-lg text-sm font-medium border transition-all ${t.pillIndicator} text-white border-transparent`;
+                        } else {
+                            button.className = `${selectorClass} py-2 rounded-lg text-sm font-medium border transition-all bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600`;
+                        }
+                    });
+                } else {
+                    intervalControls.classList.add('hidden');
+                }
+            }
+
+
+            // 3. Update Clock Display (Only exists in Settings modal - using no prefix)
+            if (targetPrefix === '' && document.getElementById('setting-next-reminder-clock')) { 
+                const settingClock = document.getElementById('setting-next-reminder-clock');
+                if (remindersEnabled && nextReminderTime && currentIntake < dailyGoal) {
+                    settingClock.classList.remove('hidden');
+                    settingClock.className = `flex items-center gap-2 mt-2 px-3 py-2 rounded-lg text-xs font-medium ${t.pillBg} ${t.pillText} border ${t.pillBorder}`;
+                    document.getElementById('setting-next-reminder-time').textContent = `O alarme tocará às: ${formatTime(nextReminderTime)}`;
+                } else {
+                    settingClock.classList.add('hidden');
+                }
+            }
+
+            lucide.createIcons();
+        }
+
+
         function updateSettingsModal() {
+            // Re-render theme selectors in case color changed
+            renderThemeSelectors();
+            
             const t = themes[currentTheme];
             
             // Goal Display
@@ -629,51 +733,9 @@
             // Theme Name
             document.getElementById('theme-name-display').textContent = t.name;
 
-            // Reminder Toggle Button
-            const btn = document.getElementById('reminder-toggle-button');
-            const icon = document.getElementById('reminder-toggle-icon');
-            const text = document.getElementById('reminder-toggle-text');
-            const switchEl = document.getElementById('reminder-toggle-switch');
-            const switchCircle = switchEl.querySelector('div');
-            const intervalControls = document.getElementById('reminder-interval-controls');
-            const settingClock = document.getElementById('setting-next-reminder-clock');
-            
-            btn.className = `w-full p-3 rounded-xl border flex items-center justify-between transition-all ${remindersEnabled ? `${t.pillBg} ${t.pillBorder} ${t.pillText}` : 'bg-slate-800/30 border-slate-700 text-slate-400'}`;
-            
-            icon.dataset.lucide = remindersEnabled ? 'bell' : 'bell-off';
-            text.textContent = remindersEnabled ? 'Ativado' : 'Desativado';
-            
-            switchEl.className = `w-10 h-6 rounded-full relative transition-colors ${remindersEnabled ? t.pillIndicator : 'bg-slate-700'}`;
-            switchCircle.className = `absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${remindersEnabled ? 'left-5' : 'left-1'}`;
-            
-            // Reminder Interval buttons
-            document.querySelectorAll('.reminder-interval-btn').forEach(button => {
-                const interval = Number(button.dataset.interval);
-                if (interval === reminderInterval && remindersEnabled) {
-                    button.className = `reminder-interval-btn py-2 rounded-lg text-sm font-medium border transition-all ${t.pillIndicator} text-white border-transparent`;
-                } else {
-                    button.className = `reminder-interval-btn py-2 rounded-lg text-sm font-medium border transition-all bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600`;
-                }
-            });
-
-            // Setting Next Reminder Clock
-            if (remindersEnabled && nextReminderTime && currentIntake < dailyGoal) {
-                settingClock.classList.remove('hidden');
-                settingClock.className = `flex items-center gap-2 mt-2 px-3 py-2 rounded-lg text-xs font-medium ${t.pillBg} ${t.pillText} border ${t.pillBorder}`;
-                document.getElementById('setting-next-reminder-time').textContent = `O alarme tocará às: ${formatTime(nextReminderTime)}`;
-            } else {
-                settingClock.classList.add('hidden');
-            }
-
-            if (remindersEnabled) {
-                intervalControls.classList.remove('hidden');
-            } else {
-                intervalControls.classList.add('hidden');
-            }
-
-            lucide.createIcons();
+            // Call the centralized logic for settings controls (using empty prefix)
+            updateReminderUI(''); 
         }
-
 
         function renderApp() {
             const t = themes[currentTheme];
@@ -688,11 +750,14 @@
             document.getElementById('header-icon-bg').className = `p-2 rounded-xl backdrop-blur-md border transition-colors duration-300 ${t.iconBg} ${t.border}`;
             document.getElementById('header-icon').className = `w-6 h-6 transition-colors duration-300 ${t.primary}`;
             document.getElementById('app-title').className = `text-2xl font-bold tracking-tighter bg-gradient-to-r bg-clip-text text-transparent transition-all duration-300 ${t.gradientText}`;
+            
+            // Status Pill next to Settings
+            const statusPill = document.getElementById('reminder-status-pill');
             if (remindersEnabled) {
-                 document.getElementById('reminder-status-pill').classList.remove('hidden');
-                 document.getElementById('reminder-status-pill').className = `absolute top-2 right-2 w-2 h-2 rounded-full ${t.pillIndicator}`;
+                 statusPill.classList.remove('hidden');
+                 statusPill.className = `absolute top-2 right-2 w-2 h-2 rounded-full ${t.pillIndicator}`;
             } else {
-                 document.getElementById('reminder-status-pill').classList.add('hidden');
+                 statusPill.classList.add('hidden');
             }
 
             // Circular Viz
@@ -707,16 +772,20 @@
             document.getElementById('current-intake').textContent = currentIntake;
             document.getElementById('daily-goal-display').textContent = `/ ${dailyGoal}ml`;
             
-            // RELÓGIO PRINCIPAL
-            const clockEl = document.getElementById('next-reminder-clock');
-            if (remindersEnabled && nextReminderTime && currentIntake < dailyGoal) {
-                clockEl.classList.remove('hidden');
-                clockEl.className = `flex items-center gap-1 mt-3 text-sm font-medium transition-colors duration-300 ${t.primary}`;
-                document.getElementById('next-reminder-time').textContent = `Próx: ${formatTime(nextReminderTime)}`;
-            } else {
-                clockEl.classList.add('hidden');
-            }
+            // NOVO: Clock inside the circle
+            const nextClock = document.getElementById('next-reminder-clock');
+            const nextClockIcon = document.getElementById('next-reminder-clock-icon');
+            const nextTimeDisplay = document.getElementById('next-reminder-time-display');
 
+            if (remindersEnabled && currentIntake < dailyGoal && nextReminderTime) {
+                nextClock.classList.remove('opacity-0');
+                nextClockIcon.className = `w-4 h-4 ${t.primary}`;
+                nextTimeDisplay.textContent = formatTime(nextReminderTime);
+                nextTimeDisplay.className = `text-2xl font-bold ${t.primary}`;
+            } else {
+                 // Remove clock if goal met or reminders disabled
+                nextClock.classList.add('opacity-0');
+            }
 
             // Slider Section
             document.getElementById('slider-container').className = `w-full bg-slate-900/40 backdrop-blur-md border rounded-2xl p-4 mb-4 shadow-lg transition-colors duration-300 ${t.border}`;
@@ -732,13 +801,17 @@
             document.getElementById('history-button').className = `w-full py-4 bg-slate-800/20 hover:bg-slate-800/40 border border-transparent rounded-2xl flex items-center justify-center gap-2 transition-all group ${t.borderHover}`;
             document.getElementById('history-title').className = `text-xl font-bold flex items-center gap-2 ${t.primary}`;
 
-            lucide.createIcons(); // Re-render lucide icons to apply new colors
+            // NOVO: Main Reminder Controls
+            document.getElementById('main-reminder-controls').className = `w-full bg-slate-900/40 backdrop-blur-md border border-slate-700 rounded-2xl p-4 mb-4 shadow-lg transition-colors duration-300`;
+            updateReminderUI('main-');
+
+
+            lucide.createIcons(); 
         }
 
         // --- Initialization ---
         window.onload = function() {
             loadState();
-            renderThemeSelectors(); // Renders the theme buttons
             
             // Set initial slider value and listener
             const slider = document.getElementById('slider-amount');
@@ -750,15 +823,17 @@
             
             slider.addEventListener('input', (e) => {
                 sliderValue = Number(e.target.value);
-                addButtonAmount.textContent = sliderValue;
-                renderApp(); // Updates slider color via renderApp
+                renderApp(); 
             });
             
-            reminderLogic(); // Starts the reminder timer and sets nextReminderTime
-            renderApp(); // Initial render
+            // Load theme and render controls before timer starts
+            renderThemeSelectors(); 
+            
+            // Start the reminder timer and initial render
+            reminderLogic(); 
+            renderApp();
         };
     </script>
 </body>
 </html>
 
-     
