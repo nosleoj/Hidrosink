@@ -15,6 +15,8 @@
         }
         body {
             font-family: 'Inter', sans-serif;
+            /* Garante que o corpo não tenha scroll horizontal */
+            overflow-x: hidden;
         }
         /* Custom styles for Range Input (for the slider thumb) */
         #slider-amount {
@@ -73,6 +75,7 @@
         .animate-slide-up {
           animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        /* Oculta a barra de rolagem mas permite o scroll */
         .hide-scrollbar::-webkit-scrollbar {
             display: none;
         }
@@ -82,13 +85,14 @@
         }
     </style>
 </head>
-<body class="min-h-screen bg-slate-950 text-white selection:bg-cyan-500 selection:text-white overflow-hidden relative">
+<body class="min-h-screen bg-slate-950 text-white selection:bg-cyan-500 selection:text-white overflow-x-hidden relative">
 
     <!-- Dynamic Background Ambient Glows -->
     <div id="bg-glow-1" class="fixed top-[-20%] left-[-20%] w-[80%] h-[80%] rounded-full blur-[120px] pointer-events-none animate-pulse-slow bg-blue-600/20 transition-colors duration-700"></div>
     <div id="bg-glow-2" class="fixed bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full blur-[120px] pointer-events-none bg-cyan-500/10 transition-colors duration-700"></div>
 
-    <div class="relative z-10 w-full max-w-md mx-auto h-screen flex flex-col p-6 overflow-y-auto hide-scrollbar">
+    <!-- MAIN APP CONTAINER (Centralizado e com largura limitada) -->
+    <div class="relative z-10 w-full max-w-xl mx-auto h-screen flex flex-col p-6 overflow-y-auto hide-scrollbar">
         
         <!-- Header -->
         <header class="flex justify-between items-center mb-4 flex-shrink-0">
@@ -113,11 +117,11 @@
             </div>
         </header>
 
-        <!-- Main Circular Visualization -->
+        <!-- Main Circular Visualization (Responsiveness: w-[70vw] h-[70vw] garante que caiba em qualquer tela) -->
         <div class="flex-shrink-0 flex flex-col items-center justify-center relative mb-6">
             <div 
                 id="water-circle"
-                class="relative w-64 h-64 rounded-full border-4 border-slate-800/50 shadow-2xl flex items-center justify-center overflow-hidden backdrop-blur-sm bg-slate-900/40 cursor-pointer" 
+                class="relative w-[70vw] h-[70vw] max-w-80 max-h-80 rounded-full border-4 border-slate-800/50 shadow-2xl flex items-center justify-center overflow-hidden backdrop-blur-sm bg-slate-900/40 cursor-pointer" 
                 onclick="addWater(document.getElementById('slider-amount').value)"
             >
                 <!-- Liquid Fill Effect -->
@@ -139,9 +143,8 @@
                         <span id="daily-goal-display" class="text-sm text-slate-500">/ 2500ml</span>
                     </div>
                     
-                    <!-- Relógio do Próximo Lembrete (DE VOLTA AO CÍRCULO) -->
+                    <!-- Relógio do Próximo Lembrete -->
                     <div id="next-reminder-clock" class="mt-4 flex flex-col items-center transition-opacity duration-500 opacity-0">
-                        <!-- Use a cor de destaque aqui -->
                         <i data-lucide="clock" id="next-reminder-clock-icon" class="w-4 h-4 text-cyan-400"></i>
                         <span class="text-xs font-semibold text-slate-400 mt-1">Próx. Alarme</span>
                         <span id="next-reminder-time-display" class="text-2xl font-bold text-cyan-400">--:--</span>
@@ -157,7 +160,7 @@
             </div>
         </div>
 
-        <!-- CUSTOM SLIDER SECTION -->
+        <!-- CUSTOM SLIDER SECTION (usa w-full) -->
         <div id="slider-container" class="w-full bg-slate-900/40 backdrop-blur-md border border-cyan-500/30 rounded-2xl p-4 mb-4 shadow-lg transition-colors duration-300">
             <div class="flex justify-between items-center mb-3">
                 <span class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
@@ -210,7 +213,7 @@
             </button>
         </div>
         
-        <!-- Quick Add Controls -->
+        <!-- Quick Add Controls (usa grid-cols-3 para layout adaptável) -->
         <div class="grid grid-cols-3 gap-3 mb-4">
             <!-- 200ml Button -->
             <button 
@@ -240,7 +243,7 @@
             </button>
         </div>
         
-        <!-- NOVO: Lembrete Inteligente na Tela Inicial (com toggle e botões de intervalo) -->
+        <!-- Lembrete Inteligente na Tela Inicial (usa w-full) -->
         <div id="main-reminder-controls" class="w-full bg-slate-900/40 backdrop-blur-md border border-slate-700 rounded-2xl p-4 mb-4 shadow-lg transition-colors duration-300">
             <label class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2 mb-3">
                 <i data-lucide="bell" class="w-4 h-4 text-cyan-400"></i> Lembrete Inteligente
@@ -270,7 +273,7 @@
         </div>
 
 
-        <!-- Footer / History Toggle -->
+        <!-- Footer / History Toggle (usa w-full) -->
         <div class="mt-auto">
             <button 
                 onclick="showModal('history-modal')"
@@ -292,7 +295,7 @@
 
     <!-- History Modal (Full Screen Overlay) -->
     <div id="history-modal" class="fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-xl flex-col hidden animate-slide-up">
-        <div class="p-6 flex justify-between items-center border-b border-slate-800">
+        <div class="p-6 flex justify-between items-center border-b border-slate-800 flex-shrink-0">
             <h2 id="history-title" class="text-xl font-bold flex items-center gap-2 text-cyan-400">
                 <i data-lucide="history" class="w-6 h-6"></i> Histórico
             </h2>
@@ -300,6 +303,7 @@
                 <i data-lucide="x" class="w-5 h-5"></i>
             </button>
         </div>
+        <!-- Container de logs com scroll seguro -->
         <div id="logs-container" class="flex-1 overflow-y-auto p-6 space-y-3 hide-scrollbar">
             <!-- Logs will be inserted here -->
         </div>
@@ -307,8 +311,8 @@
 
     <!-- Settings Modal (Centered Overlay) -->
     <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm hidden">
-        <div class="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-3xl p-6 shadow-2xl transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-3xl p-6 shadow-2xl transform transition-all scale-100 max-h-[90vh] overflow-y-auto hide-scrollbar">
+            <div class="flex justify-between items-center mb-6 flex-shrink-0">
                 <h3 class="text-lg font-bold text-white">Ajustes</h3>
                 <button onclick="hideModal('settings-modal')" class="text-slate-400 hover:text-white">
                     <i data-lucide="x" class="w-5 h-5"></i>
@@ -495,7 +499,7 @@
                 
                 remindersEnabled = parsed.remindersEnabled !== undefined ? parsed.remindersEnabled : true;
                 reminderInterval = parsed.reminderInterval || 120;
-                currentTheme = parsed.theme || 'blue';
+                currentTheme = parsed.currentTheme || 'blue';
             }
         }
 
@@ -832,6 +836,9 @@
             // Start the reminder timer and initial render
             reminderLogic(); 
             renderApp();
+            
+            // Ensure icons are created after initial render
+            lucide.createIcons();
         };
     </script>
 </body>
