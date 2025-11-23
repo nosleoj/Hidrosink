@@ -1,0 +1,764 @@
+ <!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HydroSync Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons (usado para SVG, mais leve que FontAwesome) -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --slider-thumb-color: #22d3ee;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles for Range Input (for the slider thumb) */
+        #slider-amount {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+            width: 100%;
+            height: 32px;
+            z-index: 20;
+            position: relative;
+        }
+
+        #slider-amount::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: var(--slider-thumb-color);
+            border: 4px solid #0f172a;
+            cursor: pointer;
+            margin-top: -10px;
+            box-shadow: 0 0 10px var(--slider-thumb-color)80;
+            position: relative;
+            z-index: 30;
+            transition: background-color 0.3s;
+        }
+
+        #slider-amount::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: transparent;
+        }
+
+        /* Animations */
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.5; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.1); }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 8s infinite ease-in-out;
+        }
+        @keyframes fade-in-down {
+          from { opacity: 0; transform: translate(-50%, -10px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .animate-fade-in-down {
+          animation: fade-in-down 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slide-up {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-white selection:bg-cyan-500 selection:text-white overflow-hidden relative">
+
+    <!-- Dynamic Background Ambient Glows -->
+    <div id="bg-glow-1" class="fixed top-[-20%] left-[-20%] w-[80%] h-[80%] rounded-full blur-[120px] pointer-events-none animate-pulse-slow bg-blue-600/20 transition-colors duration-700"></div>
+    <div id="bg-glow-2" class="fixed bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full blur-[120px] pointer-events-none bg-cyan-500/10 transition-colors duration-700"></div>
+
+    <div class="relative z-10 w-full max-w-md mx-auto h-screen flex flex-col p-6 overflow-y-auto hide-scrollbar">
+        
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-4 flex-shrink-0">
+            <div class="flex items-center gap-2">
+                <div id="header-icon-bg" class="p-2 rounded-xl backdrop-blur-md border border-cyan-500/30 transition-colors duration-300 bg-cyan-500/20">
+                    <i data-lucide="droplets" id="header-icon" class="w-6 h-6 text-cyan-400 transition-colors duration-300"></i>
+                </div>
+                <h1 id="app-title" class="text-2xl font-bold tracking-tighter bg-gradient-to-r from-cyan-300 to-blue-500 bg-clip-text text-transparent transition-all duration-300">
+                    HydroSync
+                </h1>
+            </div>
+            <div class="flex gap-2">
+                <button 
+                    onclick="showModal('settings-modal')"
+                    id="settings-button"
+                    class="p-2 hover:bg-white/10 rounded-full transition-colors relative"
+                >
+                    <i data-lucide="settings" class="w-6 h-6 text-slate-400 hover:text-white"></i>
+                    <!-- Reminder Status Pill -->
+                    <span id="reminder-status-pill" class="absolute top-2 right-2 w-2 h-2 rounded-full bg-cyan-500 hidden"></span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Circular Visualization -->
+        <div class="flex-shrink-0 flex flex-col items-center justify-center relative mb-6">
+            <div 
+                id="water-circle"
+                class="relative w-64 h-64 rounded-full border-4 border-slate-800/50 shadow-2xl flex items-center justify-center overflow-hidden backdrop-blur-sm bg-slate-900/40 cursor-pointer" 
+                onclick="addWater(document.getElementById('slider-amount').value)"
+            >
+                <!-- Liquid Fill Effect -->
+                <div 
+                    id="liquid-fill"
+                    class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-600 to-cyan-400 transition-all duration-1000 ease-in-out opacity-80"
+                    style="height: 0%;"
+                >
+                    <div id="liquid-top-glow" class="absolute top-0 left-0 w-full h-4 blur-md opacity-50 -translate-y-1/2 bg-cyan-300"></div>
+                </div>
+
+                <!-- Center Content -->
+                <div id="center-content" class="relative z-20 text-center flex flex-col items-center pointer-events-none">
+                    <span id="display-percentage" class="text-5xl font-black tracking-tighter transition-transform duration-300">
+                        0%
+                    </span>
+                    <div class="flex items-baseline gap-1 mt-1 text-slate-300">
+                        <span id="current-intake" class="text-lg font-medium">0</span>
+                        <span id="daily-goal-display" class="text-sm text-slate-500">/ 2500ml</span>
+                    </div>
+                    
+                    <!-- RELÓGIO DO PRÓXIMO LEMBRETE (Next Reminder Clock) -->
+                    <div id="next-reminder-clock" class="hidden flex items-center gap-1 mt-3 text-sm font-medium transition-colors duration-300 text-cyan-400">
+                        <i data-lucide="clock" class="w-4 h-4"></i>
+                        <span id="next-reminder-time">Próx: --:--</span>
+                    </div>
+                </div>
+
+                <!-- Glow Ring if Goal Met -->
+                <div 
+                    id="goal-met-ring"
+                    class="absolute inset-0 rounded-full border-4 border-cyan-400 animate-pulse hidden"
+                    style="box-shadow: 0 0 50px rgba(34,211,238,0.6);"
+                ></div>
+            </div>
+        </div>
+
+        <!-- CUSTOM SLIDER SECTION -->
+        <div id="slider-container" class="w-full bg-slate-900/40 backdrop-blur-md border border-cyan-500/30 rounded-2xl p-4 mb-4 shadow-lg transition-colors duration-300">
+            <div class="flex justify-between items-center mb-3">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <i data-lucide="sliders" class="w-3 h-3"></i> Personalizado
+                </span>
+                <span id="slider-value-display" class="text-xl font-black text-cyan-400">250 <span class="text-sm font-normal text-slate-500">ml</span></span>
+            </div>
+            
+            <div class="relative h-8 flex items-center mb-2">
+                <input
+                    type="range"
+                    min="50"
+                    max="1000"
+                    step="10"
+                    value="250"
+                    oninput="document.getElementById('slider-value-display').innerHTML = this.value + ' <span class=\'text-sm font-normal text-slate-500\'>ml</span>';"
+                    id="slider-amount"
+                />
+                
+                <!-- Visual Track -->
+                <div class="absolute top-1/2 left-0 w-full h-1 bg-slate-800 -translate-y-1/2 rounded-full z-10 flex justify-between px-1 pointer-events-none">
+                    <div class="w-full h-full absolute flex justify-between pointer-events-none">
+                        <!-- Markers -->
+                        <span class="w-0.5 h-3 bg-slate-500"></span>
+                        <span class="w-0.5 h-2 bg-slate-600"></span>
+                        <span class="w-0.5 h-2 bg-slate-600"></span>
+                        <span class="w-0.5 h-2 bg-slate-600"></span>
+                        <span class="w-0.5 h-2 bg-slate-600"></span>
+                        <span class="w-0.5 h-3 bg-slate-500"></span>
+                        <span class="w-0.5 h-2 bg-slate-600"></span>
+                        <span class="w-0.5 h-2 bg-slate-600"></span>
+                        <span class="w-0.5 h-2 bg-slate-600"></span>
+                        <span class="w-0.5 h-2 bg-slate-600"></span>
+                        <span class="w-0.5 h-3 bg-slate-500"></span>
+                    </div>
+                </div>
+            </div>
+
+            <button
+                onclick="addWater(document.getElementById('slider-amount').value)"
+                class="w-full py-3 mt-1 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 border border-slate-700 rounded-xl font-bold text-white transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]"
+            >
+                <i data-lucide="plus" id="slider-plus-icon" class="w-4 h-4 text-cyan-400"></i>
+                Adicionar <span id="add-button-amount">250</span>ml
+            </button>
+        </div>
+
+        <!-- Quick Add Controls -->
+        <div class="grid grid-cols-3 gap-3 mb-4">
+            <!-- 200ml Button -->
+            <button 
+                onclick="addWater(200)"
+                class="relative overflow-hidden group rounded-3xl p-4 flex flex-col items-center gap-2 transition-all duration-300 active:scale-95 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-800 text-slate-300 hover:text-white hover:border-cyan-500/30"
+            >
+                <span class="text-2xl transform group-hover:scale-110 transition-transform duration-300 block">☕</span>
+                <span class="font-semibold text-sm">200ml</span>
+            </button>
+            <!-- 350ml Button (Primary) -->
+            <button 
+                onclick="addWater(350)"
+                id="quick-add-primary"
+                class="relative overflow-hidden group rounded-3xl p-4 flex flex-col items-center gap-2 transition-all duration-300 active:scale-95 bg-gradient-to-br from-cyan-500 to-blue-600 shadow-cyan-500/25 text-white border border-transparent"
+            >
+                <span class="text-2xl transform group-hover:scale-110 transition-transform duration-300 block">💧</span>
+                <span class="font-semibold text-sm">350ml</span>
+                <div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            </button>
+            <!-- 500ml Button -->
+            <button 
+                onclick="addWater(500)"
+                class="relative overflow-hidden group rounded-3xl p-4 flex flex-col items-center gap-2 transition-all duration-300 active:scale-95 bg-slate-800/40 border border-slate-700/50 hover:bg-slate-800 text-slate-300 hover:text-white hover:border-cyan-500/30"
+            >
+                <span class="text-2xl transform group-hover:scale-110 transition-transform duration-300 block">🌊</span>
+                <span class="font-semibold text-sm">500ml</span>
+            </button>
+        </div>
+
+        <!-- Footer / History Toggle -->
+        <div class="mt-auto">
+            <button 
+                onclick="showModal('history-modal')"
+                id="history-button"
+                class="w-full py-4 bg-slate-800/20 hover:bg-slate-800/40 border border-transparent rounded-2xl flex items-center justify-center gap-2 transition-all group hover:border-cyan-500/30"
+            >
+                <i data-lucide="history" class="w-5 h-5 text-slate-500 transition-colors group-hover:text-cyan-400"></i>
+                <span class="font-medium text-slate-500 group-hover:text-slate-300">Histórico de Hoje</span>
+                <i data-lucide="chevron-up" class="w-4 h-4 text-slate-500 group-hover:-translate-y-1 transition-transform"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Toast (Fixed) -->
+    <div id="notification-toast" class="fixed top-24 left-1/2 transform -translate-x-1/2 backdrop-blur-xl text-white px-6 py-3 rounded-full shadow-lg z-50 flex items-center gap-2 hidden animate-fade-in-down border border-white/20 w-max max-w-[90%] pointer-events-none bg-gradient-to-br from-cyan-500 to-blue-600 shadow-cyan-500/25">
+        <i data-lucide="bell" id="notification-icon" class="w-4 h-4"></i>
+        <span id="notification-message" class="font-medium text-sm"></span>
+    </div>
+
+    <!-- History Modal (Full Screen Overlay) -->
+    <div id="history-modal" class="fixed inset-0 z-40 bg-slate-950/95 backdrop-blur-xl flex-col hidden animate-slide-up">
+        <div class="p-6 flex justify-between items-center border-b border-slate-800">
+            <h2 id="history-title" class="text-xl font-bold flex items-center gap-2 text-cyan-400">
+                <i data-lucide="history" class="w-6 h-6"></i> Histórico
+            </h2>
+            <button onclick="hideModal('history-modal')" class="p-2 bg-slate-800 rounded-full hover:bg-slate-700">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div id="logs-container" class="flex-1 overflow-y-auto p-6 space-y-3 hide-scrollbar">
+            <!-- Logs will be inserted here -->
+        </div>
+    </div>
+
+    <!-- Settings Modal (Centered Overlay) -->
+    <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm hidden">
+        <div class="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-3xl p-6 shadow-2xl transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-bold text-white">Ajustes</h3>
+                <button onclick="hideModal('settings-modal')" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="flex flex-col gap-6">
+                
+                <!-- Theme Selector Section -->
+                <div class="space-y-3">
+                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                      <i data-lucide="palette" class="w-4 h-4"></i> Cor do Layout
+                    </label>
+                    <div id="theme-selectors" class="grid grid-cols-5 gap-2">
+                        <!-- Theme buttons inserted by JS -->
+                    </div>
+                    <div id="theme-name-display" class="text-center text-xs text-slate-400 mt-1">Azul Neon</div>
+                </div>
+
+                <!-- Daily Goal Section -->
+                <div class="space-y-3">
+                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Meta Diária</label>
+                    <div class="flex items-center justify-between bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                       <button onclick="setGoal(-250)" class="p-2 bg-slate-700 rounded-lg hover:bg-slate-600"><i data-lucide="minus" class="w-4 h-4"></i></button>
+                       <span id="setting-goal-display" class="text-xl font-black text-white">2500 <span class="text-xs font-normal text-slate-400">ml</span></span>
+                       <button onclick="setGoal(250)" class="p-2 bg-slate-700 rounded-lg hover:bg-slate-600"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+                
+                <!-- Reminder Settings Section (Toggle and Interval) -->
+                <div class="space-y-3">
+                    <label class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <i data-lucide="bell" class="w-4 h-4 text-cyan-400"></i> Lembrete Inteligente
+                    </label>
+                    <div class="flex flex-col gap-3">
+                        <button 
+                            onclick="toggleReminders()"
+                            id="reminder-toggle-button"
+                            class="w-full p-3 rounded-xl border flex items-center justify-between transition-all bg-cyan-500/10 border-cyan-500/50 text-cyan-300"
+                        >
+                            <div class="flex items-center gap-3">
+                                <i data-lucide="bell" id="reminder-toggle-icon" class="w-5 h-5"></i>
+                                <span id="reminder-toggle-text" class="font-medium">Ativado</span>
+                            </div>
+                            <div id="reminder-toggle-switch" class="w-10 h-6 rounded-full relative transition-colors bg-cyan-500">
+                                <div class="absolute top-1 w-4 h-4 bg-white rounded-full transition-transform left-5"></div>
+                            </div>
+                        </button>
+                        
+                        <div id="reminder-interval-controls" class="grid grid-cols-3 gap-2">
+                            <button onclick="setReminderInterval(60)" class="reminder-interval-btn py-2 rounded-lg text-sm font-medium border transition-all bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600" data-interval="60">1h</button>
+                            <button onclick="setReminderInterval(90)" class="reminder-interval-btn py-2 rounded-lg text-sm font-medium border transition-all bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600" data-interval="90">1.5h</button>
+                            <button onclick="setReminderInterval(120)" class="reminder-interval-btn py-2 rounded-lg text-sm font-medium border transition-all bg-cyan-500 text-white border-transparent" data-interval="120">2h</button>
+                        </div>
+
+                        <div id="setting-next-reminder-clock" class="hidden flex items-center gap-2 mt-2 px-3 py-2 rounded-lg text-xs font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/50">
+                            <i data-lucide="clock" class="w-3 h-3"></i>
+                            <span id="setting-next-reminder-time">O alarme tocará às: --:--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button 
+                    onclick="hideModal('settings-modal')"
+                    class="mt-2 w-full py-3 bg-white text-slate-900 rounded-xl font-bold shadow-lg hover:bg-slate-100 transition-all"
+                >
+                    Concluído
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let dailyGoal = 2500;
+        let currentIntake = 0;
+        let logs = [];
+        let lastUpdated = new Date().toDateString();
+        let sliderValue = 250;
+        let notificationTimeout;
+
+        // --- Reminder State ---
+        let remindersEnabled = true;
+        let reminderInterval = 120; // Minutes
+        let nextReminderTime = null;
+        let timerRef = null;
+        let audioContext = null;
+
+        // --- Theme State ---
+        let currentTheme = 'blue';
+        const themes = {
+            blue: { name: 'Azul Neon', primary: 'text-cyan-400', secondary: 'text-blue-500', gradientText: 'from-cyan-300 to-blue-500', liquid: 'from-blue-600 to-cyan-400', liquidTop: 'bg-cyan-300', bgGlow: 'bg-blue-600/20', bgGlow2: 'bg-cyan-500/10', border: 'border-cyan-500/30', borderHover: 'hover:border-cyan-500/30', iconBg: 'bg-cyan-500/20', sliderThumb: '#22d3ee', buttonPrimary: 'bg-gradient-to-br from-cyan-500 to-blue-600 shadow-cyan-500/25', ringColor: 'border-cyan-400', ringShadow: 'rgba(34,211,238,0.6)', pillText: 'text-cyan-300', pillBg: 'bg-cyan-500/10', pillBorder: 'border-cyan-500/50', pillIndicator: 'bg-cyan-500' },
+            green: { name: 'Verde Tech', primary: 'text-emerald-400', secondary: 'text-green-500', gradientText: 'from-emerald-300 to-green-500', liquid: 'from-green-600 to-emerald-400', liquidTop: 'bg-emerald-300', bgGlow: 'bg-green-600/20', bgGlow2: 'bg-emerald-500/10', border: 'border-emerald-500/30', borderHover: 'hover:border-emerald-500/30', iconBg: 'bg-emerald-500/20', sliderThumb: '#34d399', buttonPrimary: 'bg-gradient-to-br from-emerald-500 to-green-600 shadow-emerald-500/25', ringColor: 'border-emerald-400', ringShadow: 'rgba(52,211,153,0.6)', pillText: 'text-emerald-300', pillBg: 'bg-emerald-500/10', pillBorder: 'border-emerald-500/50', pillIndicator: 'bg-emerald-500' },
+            orange: { name: 'Laranja Solar', primary: 'text-orange-400', secondary: 'text-amber-500', gradientText: 'from-orange-300 to-red-500', liquid: 'from-red-600 to-orange-400', liquidTop: 'bg-orange-300', bgGlow: 'bg-orange-600/20', bgGlow2: 'bg-amber-500/10', border: 'border-orange-500/30', borderHover: 'hover:border-orange-500/30', iconBg: 'bg-orange-500/20', sliderThumb: '#fb923c', buttonPrimary: 'bg-gradient-to-br from-orange-500 to-red-600 shadow-orange-500/25', ringColor: 'border-orange-400', ringShadow: 'rgba(251,146,60,0.6)', pillText: 'text-orange-300', pillBg: 'bg-orange-500/10', pillBorder: 'border-orange-500/50', pillIndicator: 'bg-orange-500' },
+            purple: { name: 'Roxo Cyber', primary: 'text-purple-400', secondary: 'text-fuchsia-500', gradientText: 'from-purple-300 to-fuchsia-500', liquid: 'from-purple-600 to-fuchsia-400', liquidTop: 'bg-fuchsia-300', bgGlow: 'bg-purple-600/20', bgGlow2: 'bg-fuchsia-500/10', border: 'border-purple-500/30', borderHover: 'hover:border-purple-500/30', iconBg: 'bg-purple-500/20', sliderThumb: '#c084fc', buttonPrimary: 'bg-gradient-to-br from-purple-500 to-fuchsia-600 shadow-purple-500/25', ringColor: 'border-purple-400', ringShadow: 'rgba(192,132,252,0.6)', pillText: 'text-purple-300', pillBg: 'bg-purple-500/10', pillBorder: 'border-purple-500/50', pillIndicator: 'bg-purple-500' },
+            white: { name: 'Monocromático', primary: 'text-white', secondary: 'text-slate-300', gradientText: 'from-white to-slate-400', liquid: 'from-slate-500 to-white', liquidTop: 'bg-white', bgGlow: 'bg-white/10', bgGlow2: 'bg-slate-500/10', border: 'border-white/30', borderHover: 'hover:border-white/30', iconBg: 'bg-white/20', sliderThumb: '#ffffff', buttonPrimary: 'bg-gradient-to-br from-slate-200 to-slate-400 shadow-white/25 text-black', ringColor: 'border-white', ringShadow: 'rgba(255,255,255,0.6)', pillText: 'text-white', pillBg: 'bg-white/10', pillBorder: 'border-white/50', pillIndicator: 'bg-white' }
+        };
+
+        // --- Helper Functions ---
+        const formatTime = (date) => date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+        function showModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+            document.getElementById(id).classList.add('flex'); // History modal is flex-col
+            if (id === 'history-modal') {
+                document.getElementById(id).classList.add('flex-col');
+                renderHistory();
+            } else if (id === 'settings-modal') {
+                updateSettingsModal();
+            }
+        }
+
+        function hideModal(id) {
+            document.getElementById(id).classList.add('hidden');
+            document.getElementById(id).classList.remove('flex', 'flex-col');
+            saveState();
+        }
+
+        function showNotification(message, isAlarm = false) {
+            clearTimeout(notificationTimeout);
+            const toast = document.getElementById('notification-toast');
+            const icon = document.getElementById('notification-icon');
+            const t = themes[currentTheme];
+            
+            toast.className = `fixed top-24 left-1/2 transform -translate-x-1/2 backdrop-blur-xl text-white px-6 py-3 rounded-full shadow-lg z-50 flex items-center gap-2 animate-fade-in-down border border-white/20 w-max max-w-[90%] pointer-events-none ${t.buttonPrimary}`;
+
+            document.getElementById('notification-message').textContent = message;
+            icon.dataset.lucide = message.includes("Meta") ? 'trophy' : (isAlarm ? 'bell' : 'droplets');
+            lucide.createIcons(); 
+            toast.classList.remove('hidden');
+
+            notificationTimeout = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, isAlarm ? 6000 : 3000);
+        }
+
+        function playNotificationSound() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                if (!audioContext) audioContext = new AudioContext();
+                const ctx = audioContext;
+                const osc = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+                osc.connect(gainNode);
+                gainNode.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.1);
+                gainNode.gain.setValueAtTime(0, ctx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.3);
+            } catch (e) { console.error("Audio failed", e); }
+        }
+        
+        // --- Storage Logic ---
+        function saveState() {
+            const dataToStore = { dailyGoal, currentIntake, logs, lastUpdated: new Date().toDateString(), remindersEnabled, reminderInterval, currentTheme };
+            localStorage.setItem('hydroSyncData', JSON.stringify(dataToStore));
+        }
+
+        function loadState() {
+            const storedData = localStorage.getItem('hydroSyncData');
+            const today = new Date().toDateString();
+
+            if (storedData) {
+                const parsed = JSON.parse(storedData);
+                
+                // Check if it's a new day
+                if (parsed.lastUpdated !== today) {
+                    logs = [];
+                    currentIntake = 0;
+                    lastUpdated = today;
+                } else {
+                    dailyGoal = parsed.dailyGoal || 2500;
+                    currentIntake = parsed.currentIntake || 0;
+                    logs = parsed.logs || [];
+                    lastUpdated = parsed.lastUpdated;
+                }
+                
+                remindersEnabled = parsed.remindersEnabled !== undefined ? parsed.remindersEnabled : true;
+                reminderInterval = parsed.reminderInterval || 120;
+                currentTheme = parsed.theme || 'blue';
+            }
+        }
+
+        // --- Core App Logic ---
+        
+        function reminderLogic() {
+            clearTimeout(timerRef);
+            nextReminderTime = null;
+
+            if (remindersEnabled && currentIntake < dailyGoal) {
+                const delayMs = reminderInterval * 60 * 1000;
+                nextReminderTime = new Date(Date.now() + delayMs);
+
+                const triggerAlarm = () => {
+                    playNotificationSound();
+                    if ("Notification" in window && Notification.permission === 'granted') {
+                        try {
+                            new Notification("HydroSync 💧", { body: "Hora de se hidratar!", icon: "https://cdn-icons-png.flaticon.com/512/414/414974.png" });
+                        } catch (e) {}
+                    } else {
+                        showNotification("🔔 HORA DE BEBER ÁGUA! 🔔", true);
+                    }
+                    // Restart timer immediately after alarm
+                    reminderLogic(); 
+                };
+                
+                timerRef = setTimeout(triggerAlarm, delayMs);
+            }
+            // Update the display immediately
+            renderApp(); 
+            if (document.getElementById('settings-modal').classList.contains('flex')) {
+                updateSettingsModal(); // Update settings modal clock if open
+            }
+        }
+
+        async function toggleReminders() {
+            remindersEnabled = !remindersEnabled;
+            if (remindersEnabled) {
+                let granted = false;
+                if ("Notification" in window) {
+                    try {
+                        const p = await Notification.requestPermission();
+                        granted = p === 'granted';
+                    } catch (e) {}
+                }
+                showNotification(granted ? "Lembretes do sistema!" : "Alarme interno ativo");
+                playNotificationSound(); 
+            } else {
+                showNotification("Lembretes desativados");
+            }
+            reminderLogic(); // Recalculate and start/stop timer
+            updateSettingsModal(); // Update settings UI
+        }
+        
+        function setReminderInterval(minutes) {
+            reminderInterval = minutes;
+            reminderLogic();
+            updateSettingsModal();
+            showNotification(`Lembrete ajustado para ${minutes/60}h`);
+        }
+
+        function addWater(amountStr) {
+            const amount = Number(amountStr);
+            if (isNaN(amount) || amount <= 0) return;
+
+            const newIntake = currentIntake + amount;
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            if (currentIntake < dailyGoal && newIntake >= dailyGoal) showNotification("🎉 Meta atingida!");
+            else showNotification(`+${amount}ml adicionados`);
+
+            currentIntake = newIntake;
+            logs = [{ id: Date.now(), amount, time: timestamp }, ...logs];
+
+            // Trigger animation class
+            const percentageElement = document.getElementById('display-percentage');
+            percentageElement.classList.add('scale-110');
+            setTimeout(() => percentageElement.classList.remove('scale-110'), 300);
+            
+            reminderLogic(); // Reset timer and calculate new nextReminderTime
+            renderApp();
+        }
+
+        function removeLog(id, amount) {
+            logs = logs.filter(log => log.id !== id);
+            currentIntake = Math.max(0, currentIntake - amount);
+            reminderLogic();
+            renderHistory();
+            renderApp();
+            showNotification(`-${amount}ml removidos`);
+        }
+        
+        function setGoal(change) {
+            dailyGoal = Math.max(1000, dailyGoal + change);
+            reminderLogic();
+            renderApp();
+            updateSettingsModal();
+        }
+
+        // --- UI Rendering Functions ---
+        
+        function renderHistory() {
+            const container = document.getElementById('logs-container');
+            const t = themes[currentTheme];
+            
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="text-center text-slate-500 mt-10">Nenhum registro hoje.</div>';
+                return;
+            }
+
+            container.innerHTML = logs.map(log => `
+                <div class="flex justify-between items-center p-4 bg-slate-900/50 border border-slate-800 rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${t.iconBg} ${t.primary}">
+                            ${log.amount}
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="font-bold text-slate-200">${log.amount} ml</span>
+                            <span class="text-xs text-slate-500">${log.time}</span>
+                        </div>
+                    </div>
+                    <button 
+                        onclick="removeLog(${log.id}, ${log.amount})"
+                        class="p-2 text-slate-600 hover:text-red-400 transition-colors"
+                    >
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            lucide.createIcons(); // Re-render icons after adding content
+        }
+
+        function renderThemeSelectors() {
+            const container = document.getElementById('theme-selectors');
+            container.innerHTML = Object.entries(themes).map(([key, theme]) => {
+                const isSelected = key === currentTheme;
+                const style = `style="background: ${
+                    key === 'white' ? '#fff' : 
+                    key === 'orange' ? 'linear-gradient(45deg, #f97316, #ef4444)' :
+                    key === 'green' ? 'linear-gradient(45deg, #10b981, #059669)' :
+                    key === 'purple' ? 'linear-gradient(45deg, #a855f7, #c026d3)' :
+                    'linear-gradient(45deg, #06b6d4, #3b82f6)' 
+                }"`;
+                const content = isSelected ? `<div class="w-3 h-3 rounded-full ${key === 'white' ? 'bg-black' : 'bg-white'}"></div>` : '';
+
+                return `
+                    <button
+                        onclick="setTheme('${key}')"
+                        class="w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${isSelected ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-70 hover:opacity-100'}"
+                        title="${theme.name}"
+                        ${style}
+                    >${content}</button>
+                `;
+            }).join('');
+        }
+        
+        function setTheme(themeKey) {
+            currentTheme = themeKey;
+            renderThemeSelectors(); // Update selectors in settings modal
+            renderApp(); // Rerender main UI
+        }
+
+        function updateSettingsModal() {
+            const t = themes[currentTheme];
+            
+            // Goal Display
+            document.getElementById('setting-goal-display').innerHTML = `${dailyGoal} <span class="text-xs font-normal text-slate-400">ml</span>`;
+            
+            // Theme Name
+            document.getElementById('theme-name-display').textContent = t.name;
+
+            // Reminder Toggle Button
+            const btn = document.getElementById('reminder-toggle-button');
+            const icon = document.getElementById('reminder-toggle-icon');
+            const text = document.getElementById('reminder-toggle-text');
+            const switchEl = document.getElementById('reminder-toggle-switch');
+            const switchCircle = switchEl.querySelector('div');
+            const intervalControls = document.getElementById('reminder-interval-controls');
+            const settingClock = document.getElementById('setting-next-reminder-clock');
+            
+            btn.className = `w-full p-3 rounded-xl border flex items-center justify-between transition-all ${remindersEnabled ? `${t.pillBg} ${t.pillBorder} ${t.pillText}` : 'bg-slate-800/30 border-slate-700 text-slate-400'}`;
+            
+            icon.dataset.lucide = remindersEnabled ? 'bell' : 'bell-off';
+            text.textContent = remindersEnabled ? 'Ativado' : 'Desativado';
+            
+            switchEl.className = `w-10 h-6 rounded-full relative transition-colors ${remindersEnabled ? t.pillIndicator : 'bg-slate-700'}`;
+            switchCircle.className = `absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${remindersEnabled ? 'left-5' : 'left-1'}`;
+            
+            // Reminder Interval buttons
+            document.querySelectorAll('.reminder-interval-btn').forEach(button => {
+                const interval = Number(button.dataset.interval);
+                if (interval === reminderInterval && remindersEnabled) {
+                    button.className = `reminder-interval-btn py-2 rounded-lg text-sm font-medium border transition-all ${t.pillIndicator} text-white border-transparent`;
+                } else {
+                    button.className = `reminder-interval-btn py-2 rounded-lg text-sm font-medium border transition-all bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-600`;
+                }
+            });
+
+            // Setting Next Reminder Clock
+            if (remindersEnabled && nextReminderTime && currentIntake < dailyGoal) {
+                settingClock.classList.remove('hidden');
+                settingClock.className = `flex items-center gap-2 mt-2 px-3 py-2 rounded-lg text-xs font-medium ${t.pillBg} ${t.pillText} border ${t.pillBorder}`;
+                document.getElementById('setting-next-reminder-time').textContent = `O alarme tocará às: ${formatTime(nextReminderTime)}`;
+            } else {
+                settingClock.classList.add('hidden');
+            }
+
+            if (remindersEnabled) {
+                intervalControls.classList.remove('hidden');
+            } else {
+                intervalControls.classList.add('hidden');
+            }
+
+            lucide.createIcons();
+        }
+
+
+        function renderApp() {
+            const t = themes[currentTheme];
+            const percentage = Math.min(100, Math.max(0, (currentIntake / dailyGoal) * 100));
+            const displayPercentage = Math.round(percentage);
+
+            // 1. Update theme-dependent styles
+            document.getElementById('bg-glow-1').className = `fixed top-[-20%] left-[-20%] w-[80%] h-[80%] rounded-full blur-[120px] pointer-events-none animate-pulse-slow transition-colors duration-700 ${t.bgGlow}`;
+            document.getElementById('bg-glow-2').className = `fixed bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full blur-[120px] pointer-events-none transition-colors duration-700 ${t.bgGlow2}`;
+            
+            // Header
+            document.getElementById('header-icon-bg').className = `p-2 rounded-xl backdrop-blur-md border transition-colors duration-300 ${t.iconBg} ${t.border}`;
+            document.getElementById('header-icon').className = `w-6 h-6 transition-colors duration-300 ${t.primary}`;
+            document.getElementById('app-title').className = `text-2xl font-bold tracking-tighter bg-gradient-to-r bg-clip-text text-transparent transition-all duration-300 ${t.gradientText}`;
+            if (remindersEnabled) {
+                 document.getElementById('reminder-status-pill').classList.remove('hidden');
+                 document.getElementById('reminder-status-pill').className = `absolute top-2 right-2 w-2 h-2 rounded-full ${t.pillIndicator}`;
+            } else {
+                 document.getElementById('reminder-status-pill').classList.add('hidden');
+            }
+
+            // Circular Viz
+            document.getElementById('liquid-fill').className = `absolute bottom-0 left-0 right-0 bg-gradient-to-t transition-all duration-1000 ease-in-out opacity-80 ${t.liquid}`;
+            document.getElementById('liquid-top-glow').className = `absolute top-0 left-0 w-full h-4 blur-md opacity-50 -translate-y-1/2 ${t.liquidTop}`;
+            document.getElementById('liquid-fill').style.height = `${percentage}%`;
+            document.getElementById('goal-met-ring').className = `absolute inset-0 rounded-full border-4 animate-pulse ${t.ringColor} ${percentage >= 100 ? '' : 'hidden'}`;
+            document.getElementById('goal-met-ring').style.boxShadow = `0 0 50px ${t.ringShadow}`;
+
+            // Center Content
+            document.getElementById('display-percentage').textContent = `${displayPercentage}%`;
+            document.getElementById('current-intake').textContent = currentIntake;
+            document.getElementById('daily-goal-display').textContent = `/ ${dailyGoal}ml`;
+            
+            // RELÓGIO PRINCIPAL
+            const clockEl = document.getElementById('next-reminder-clock');
+            if (remindersEnabled && nextReminderTime && currentIntake < dailyGoal) {
+                clockEl.classList.remove('hidden');
+                clockEl.className = `flex items-center gap-1 mt-3 text-sm font-medium transition-colors duration-300 ${t.primary}`;
+                document.getElementById('next-reminder-time').textContent = `Próx: ${formatTime(nextReminderTime)}`;
+            } else {
+                clockEl.classList.add('hidden');
+            }
+
+
+            // Slider Section
+            document.getElementById('slider-container').className = `w-full bg-slate-900/40 backdrop-blur-md border rounded-2xl p-4 mb-4 shadow-lg transition-colors duration-300 ${t.border}`;
+            document.getElementById('slider-value-display').className = `text-xl font-black ${t.primary}`;
+            document.getElementById('slider-plus-icon').className = `w-4 h-4 ${t.primary.replace('text-', 'text-')}`;
+            document.documentElement.style.setProperty('--slider-thumb-color', t.sliderThumb);
+            document.getElementById('add-button-amount').textContent = sliderValue;
+
+            // Quick Add Primary Button
+            document.getElementById('quick-add-primary').className = `relative overflow-hidden group rounded-3xl p-4 flex flex-col items-center gap-2 transition-all duration-300 active:scale-95 ${t.buttonPrimary} text-white border border-transparent`;
+
+            // Footer
+            document.getElementById('history-button').className = `w-full py-4 bg-slate-800/20 hover:bg-slate-800/40 border border-transparent rounded-2xl flex items-center justify-center gap-2 transition-all group ${t.borderHover}`;
+            document.getElementById('history-title').className = `text-xl font-bold flex items-center gap-2 ${t.primary}`;
+
+            lucide.createIcons(); // Re-render lucide icons to apply new colors
+        }
+
+        // --- Initialization ---
+        window.onload = function() {
+            loadState();
+            renderThemeSelectors(); // Renders the theme buttons
+            
+            // Set initial slider value and listener
+            const slider = document.getElementById('slider-amount');
+            const sliderDisplay = document.getElementById('slider-value-display');
+            const addButtonAmount = document.getElementById('add-button-amount');
+            slider.value = sliderValue;
+            sliderDisplay.innerHTML = `${sliderValue} <span class="text-sm font-normal text-slate-500">ml</span>`;
+            addButtonAmount.textContent = sliderValue;
+            
+            slider.addEventListener('input', (e) => {
+                sliderValue = Number(e.target.value);
+                addButtonAmount.textContent = sliderValue;
+                renderApp(); // Updates slider color via renderApp
+            });
+            
+            reminderLogic(); // Starts the reminder timer and sets nextReminderTime
+            renderApp(); // Initial render
+        };
+    </script>
+</body>
+</html>
+
+     
